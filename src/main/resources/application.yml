@@ -101,3 +101,8 @@ knife4j:
         api-rule: package
         api-rule-resources:
           - com.ershi.bibackend.controller
+
+yuapi:
+  client:
+    access-key: kaqmhtd8uj4xfwp5pl7gkvwhckp8dsq6
+    secret-key: lmj7d4jz7fzu94cv03gekae2dysfim94

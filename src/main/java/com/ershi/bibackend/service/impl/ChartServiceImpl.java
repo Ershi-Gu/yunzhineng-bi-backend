@@ -8,15 +8,17 @@ import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.ershi.bibackend.common.BaseResponse;
 import com.ershi.bibackend.common.ErrorCode;
+import com.ershi.bibackend.common.ResultUtils;
 import com.ershi.bibackend.constant.CommonConstant;
 import com.ershi.bibackend.exception.BusinessException;
 import com.ershi.bibackend.exception.ThrowUtils;
+import com.ershi.bibackend.manager.AIManager;
 import com.ershi.bibackend.model.dto.chart.ChartQueryRequest;
 import com.ershi.bibackend.model.dto.chart.GenChartByAIRequest;
 import com.ershi.bibackend.model.entity.*;
 import com.ershi.bibackend.model.enums.FileUploadBizEnum;
+import com.ershi.bibackend.model.vo.BiResponse;
 import com.ershi.bibackend.model.vo.ChartVO;
 import com.ershi.bibackend.model.vo.PostVO;
 import com.ershi.bibackend.model.vo.UserVO;
@@ -24,11 +26,16 @@ import com.ershi.bibackend.service.ChartService;
 import com.ershi.bibackend.mapper.ChartMapper;
 import com.ershi.bibackend.utils.ExcelUtils;
 import com.ershi.bibackend.utils.SqlUtils;
+import com.yupi.yucongming.dev.common.BaseResponse;
+import com.yupi.yucongming.dev.model.DevChatResponse;
+import jdk.nashorn.internal.ir.annotations.Reference;
+import netscape.security.PrivilegeManager;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
 
@@ -38,8 +45,10 @@ import java.util.List;
  * @createDate 2024-05-15 01:37:04
  */
 @Service
-public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
-        implements ChartService {
+public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements ChartService {
+
+    @Resource
+    private AIManager aiManager;
 
     @Override
     public void validChart(Chart chart, boolean add) {
@@ -90,8 +99,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         queryWrapper.eq(ObjectUtils.isNotEmpty(chartType), "chartType", chartType);
         queryWrapper.eq(ObjectUtils.isNotEmpty(userId), "userId", userId);
         queryWrapper.eq("isDelete", false);
-        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC),
-                sortField);
+        queryWrapper.orderBy(SqlUtils.validSortField(sortField), sortOrder.equals(CommonConstant.SORT_ORDER_ASC), sortField);
         return queryWrapper;
     }
 
@@ -111,8 +119,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
     }
 
     @Override
-    public String genChartByAI(MultipartFile multipartFile,
-                               GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
+    public BiResponse genChartByAI(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, User loginUser) {
 
         // 参数检验
         String name = genChartByAIRequest.getName();
@@ -124,12 +131,69 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart>
         // 用户输入
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         StringBuilder userInput = new StringBuilder();
-        userInput.append("你是一位专业的数据分析师，接下来我会给你我的分析目标和原始数据，请你根据分析目标告诉我分析结论。").append("\n");
-        userInput.append("分析目标:").append(goal).append("\n");
-        userInput.append("数据:").append(csvData).append("\n");
+        userInput.append("分析需求:").append("\n");
+        if (StringUtils.isNotBlank(chartType)){
+            goal = goal + "请使用" + chartType;
+        }
+        userInput.append("数据:").append("\n");
+        userInput.append(csvData).append("\n");
 
+        // 调用 AI 服务生成图表和分析
+        String result = aiManager.doChat(userInput.toString());
+        String[] splits = result.split("【【【【【");
+        if (splits.length != 3) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 分析异常");
+        }
+        String genChart = splits[1];
+        String genResult = splits[2];
+        // 格式处理
+        genChart = RemoveFirstNewline(genChart);
+        genResult = RemoveFirstNewline(genResult);
 
-        return userInput.toString();
+        // 保存图表数据
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setGenChart(genChart);
+        chart.setGenResult(genResult);
+        chart.setUserId(loginUser.getId());
+        boolean save = this.save(chart);
+        ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+
+        BiResponse biResponse = new BiResponse();
+        biResponse.setId(chart.getId());
+        biResponse.setGenChart(genChart);
+        biResponse.setGenResult(genResult);
+
+        return biResponse;
+    }
+
+    /**
+     * 移除首行换行符
+     *
+     * @param string
+     * @return {@link String}
+     */
+    public String RemoveFirstNewline(String string) {
+        // 找到第一个换行符的位置
+        int firstNewlineIndex = string.indexOf('\n');
+        if (firstNewlineIndex != -1) {
+            // 移除第一个换行符
+            string = string.substring(0, firstNewlineIndex) +
+                    string.substring(firstNewlineIndex + 1);
+        }
+
+        // 找到最后一个换行符的位置
+        int lastNewlineIndex = string.lastIndexOf('\n');
+        if (lastNewlineIndex != -1) {
+            // 移除最后一个换行符
+            string = string.substring(0, lastNewlineIndex) +
+                    string.substring(lastNewlineIndex + 1);
+        }
+
+        return string;
     }
 }
 

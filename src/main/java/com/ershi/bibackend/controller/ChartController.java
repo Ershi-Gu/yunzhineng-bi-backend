@@ -12,6 +12,7 @@ import com.ershi.bibackend.exception.ThrowUtils;
 import com.ershi.bibackend.model.dto.chart.*;
 import com.ershi.bibackend.model.entity.Chart;
 import com.ershi.bibackend.model.entity.User;
+import com.ershi.bibackend.model.vo.BiResponse;
 import com.ershi.bibackend.model.vo.ChartVO;
 import com.ershi.bibackend.service.ChartService;
 import com.ershi.bibackend.service.UserService;
@@ -247,15 +248,18 @@ public class ChartController {
     // region AI 接口
 
     @PostMapping("/gen")
-    public BaseResponse<String> genChartByAI(@RequestPart("file") MultipartFile multipartFile,
+    public BaseResponse<BiResponse> genChartByAI(@RequestPart("file") MultipartFile multipartFile,
                                              GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
         // 请求检验
         if (genChartByAIRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求数据不能为空");
         }
 
+        // 获取登录用户
+        User loginUser = userService.getLoginUser(request);
+
         // 调用服务
-        String result = chartService.genChartByAI(multipartFile, genChartByAIRequest, request);
+        BiResponse result = chartService.genChartByAI(multipartFile, genChartByAIRequest, loginUser);
         return ResultUtils.success(result);
     }
 

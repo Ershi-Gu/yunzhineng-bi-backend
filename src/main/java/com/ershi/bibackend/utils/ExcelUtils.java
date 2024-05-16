@@ -3,6 +3,8 @@ package com.ershi.bibackend.utils;
 import cn.hutool.core.collection.CollUtil;
 import com.alibaba.excel.EasyExcel;
 import com.alibaba.excel.support.ExcelTypeEnum;
+import com.ershi.bibackend.common.ErrorCode;
+import com.ershi.bibackend.exception.BusinessException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -42,7 +44,7 @@ public class ExcelUtils {
                     .headRowNumber(0)
                     .doReadSync();
         } catch (IOException e) {
-            log.error("表格处理错误", e);
+            log.error("表格文件解析错误");
         }
         if (CollUtil.isEmpty(list)) {
             return "";
