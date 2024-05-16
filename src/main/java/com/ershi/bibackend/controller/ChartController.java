@@ -1,6 +1,5 @@
 package com.ershi.bibackend.controller;
 
-import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.ershi.bibackend.annotation.AuthCheck;
 import com.ershi.bibackend.common.BaseResponse;
@@ -10,18 +9,17 @@ import com.ershi.bibackend.common.ResultUtils;
 import com.ershi.bibackend.constant.UserConstant;
 import com.ershi.bibackend.exception.BusinessException;
 import com.ershi.bibackend.exception.ThrowUtils;
-import com.ershi.bibackend.model.dto.chart.ChartAddRequest;
-import com.ershi.bibackend.model.dto.chart.ChartEditRequest;
-import com.ershi.bibackend.model.dto.chart.ChartQueryRequest;
-import com.ershi.bibackend.model.dto.chart.ChartUpdateRequest;
+import com.ershi.bibackend.model.dto.chart.*;
 import com.ershi.bibackend.model.entity.Chart;
 import com.ershi.bibackend.model.entity.User;
 import com.ershi.bibackend.model.vo.ChartVO;
 import com.ershi.bibackend.service.ChartService;
 import com.ershi.bibackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
@@ -196,8 +194,6 @@ public class ChartController {
         return ResultUtils.success(chartService.getChartVOPage(chartPage, request));
     }
 
-    // endregion
-
     /**
      * 分页搜索（从 ES 查询，封装类）
      *
@@ -244,5 +240,26 @@ public class ChartController {
         boolean result = chartService.updateById(chart);
         return ResultUtils.success(result);
     }
+
+    // endregion
+
+
+    // region AI 接口
+
+    @PostMapping("/gen")
+    public BaseResponse<String> genChartByAI(@RequestPart("file") MultipartFile multipartFile,
+                                             GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
+        // 请求检验
+        if (genChartByAIRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求数据不能为空");
+        }
+
+        // 调用服务
+        String result = chartService.genChartByAI(multipartFile, genChartByAIRequest, request);
+        return ResultUtils.success(result);
+    }
+
+
+    // endregion
 
 }
