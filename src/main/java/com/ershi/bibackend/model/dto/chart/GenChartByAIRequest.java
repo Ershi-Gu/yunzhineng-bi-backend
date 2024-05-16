@@ -5,13 +5,12 @@ import lombok.Data;
 import java.io.Serializable;
 
 /**
- * 创建请求
- *
- * @author <a href="https://github.com/guershi">贰拾</a>
- * 
+ * AI 生成请求
+ * @author Ershi
+ * @date 2024/05/16
  */
 @Data
-public class ChartAddRequest implements Serializable {
+public class GenChartByAIRequest implements Serializable {
 
     /**
      * 图表名称
@@ -24,14 +23,11 @@ public class ChartAddRequest implements Serializable {
     private String goal;
 
     /**
-     * 图表数据
-     */
-    private String chartData;
-
-    /**
      * 图表类型
      */
     private String chartType;
 
-    private static final long serialVersionUID = 1L;
+
+    private static final long serialVersionUID = -7572359661344874517L;
+
 }

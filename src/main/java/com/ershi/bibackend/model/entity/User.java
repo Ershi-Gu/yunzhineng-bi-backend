@@ -34,7 +34,7 @@ public class User implements Serializable {
     /**
      * 用户昵称
      */
-    private String userName = userAccount;
+    private String userName;
 
     /**
      * 用户头像
