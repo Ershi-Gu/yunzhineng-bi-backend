@@ -1,6 +1,8 @@
 package com.ershi.bibackend.model.vo;
 
 import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
 import com.ershi.bibackend.model.entity.Chart;
 import lombok.Data;
 import org.springframework.beans.BeanUtils;
@@ -16,6 +18,17 @@ import java.util.List;
  */
 @Data
 public class ChartVO implements Serializable {
+
+    /**
+     * id
+     */
+    @TableId(type = IdType.ASSIGN_ID)
+    private Long id;
+
+    /**
+     * 图表名称
+     */
+    private String name;
 
     /**
      * 分析目标

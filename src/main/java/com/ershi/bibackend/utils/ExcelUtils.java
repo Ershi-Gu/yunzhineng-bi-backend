@@ -43,8 +43,8 @@ public class ExcelUtils {
                     .sheet()
                     .headRowNumber(0)
                     .doReadSync();
-        } catch (IOException e) {
-            log.error("表格文件解析错误");
+        } catch (Exception e) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "数据文件解析错误");
         }
         if (CollUtil.isEmpty(list)) {
             return "";

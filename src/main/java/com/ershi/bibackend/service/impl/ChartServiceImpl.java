@@ -32,12 +32,14 @@ import jdk.nashorn.internal.ir.annotations.Reference;
 import netscape.security.PrivilegeManager;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * @author qingtian_jun
@@ -110,64 +112,92 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
 
     @Override
     public ChartVO getChartVO(Chart chart, HttpServletRequest request) {
-        return ChartVO.objToVo(chart);
+        if (chart == null) {
+            return null;
+        }
+        ChartVO ChartVO = new ChartVO();
+        BeanUtils.copyProperties(chart, ChartVO);
+        return ChartVO;
     }
 
     @Override
     public Page<ChartVO> getChartVOPage(Page<Chart> chartPage, HttpServletRequest request) {
-        return null;
+        List<Chart> ChartList = chartPage.getRecords();
+        Page<ChartVO> ChartrVOPage = new Page<>(chartPage.getCurrent(),
+                chartPage.getSize(), chartPage.getTotal());
+        if (CollUtil.isEmpty(ChartList)) {
+            return ChartrVOPage;
+        }
+        // 填充信息
+        List<ChartVO> ChartVOList = ChartList.stream().map(ChartVO::objToVo).collect(Collectors.toList());
+        ChartrVOPage.setRecords(ChartVOList);
+        return ChartrVOPage;
     }
 
     @Override
     public BiResponse genChartByAI(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, User loginUser) {
 
-        // 参数检验
         String name = genChartByAIRequest.getName();
         String goal = genChartByAIRequest.getGoal();
         String chartType = genChartByAIRequest.getChartType();
+
+        // 参数检验
         ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100, ErrorCode.PARAMS_ERROR, "图表名称过长");
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标为空");
+
+        // 文件校验
+        long size = multipartFile.getSize();
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件超过 1M");
+        String originalFilename = multipartFile.getOriginalFilename();
+        String suffix = FileUtil.getSuffix(originalFilename);
+        final List<String> validFileSuffixList = Arrays.asList("xlsx");
+        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
+
 
         // 用户输入
         String csvData = ExcelUtils.excelToCsv(multipartFile);
         StringBuilder userInput = new StringBuilder();
         userInput.append("分析需求:").append("\n");
-        if (StringUtils.isNotBlank(chartType)){
-            goal = goal + "请使用" + chartType;
+        if (StringUtils.isNotBlank(chartType)) {
+            goal = goal + "，请使用" + chartType;
         }
-        userInput.append("数据:").append("\n");
+        userInput.append(goal).append("\n");
+        userInput.append("原始数据:").append("\n");
         userInput.append(csvData).append("\n");
 
-        // 调用 AI 服务生成图表和分析
-        String result = aiManager.doChat(userInput.toString());
-        String[] splits = result.split("【【【【【");
-        if (splits.length != 3) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 分析异常");
-        }
-        String genChart = splits[1];
-        String genResult = splits[2];
-        // 格式处理
-        genChart = RemoveFirstNewline(genChart);
-        genResult = RemoveFirstNewline(genResult);
 
-        // 保存图表数据
-        Chart chart = new Chart();
-        chart.setName(name);
-        chart.setGoal(goal);
-        chart.setChartData(csvData);
-        chart.setChartType(chartType);
-        chart.setGenChart(genChart);
-        chart.setGenResult(genResult);
-        chart.setUserId(loginUser.getId());
-        boolean save = this.save(chart);
-        ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+        return null;
+//        // 调用 AI 服务生成图表和分析
+//        String result = aiManager.doChat(userInput.toString());
+//        String[] splits = result.split("【【【【【");
+//        if (splits.length != 3) {
+//            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 分析异常");
+//        }
+//        String genChart = splits[1];
+//        String genResult = splits[2];
+//        // 格式处理
+//        genChart = RemoveFirstNewline(genChart);
+//        genResult = RemoveFirstNewline(genResult);
+//        // todo 生成输入的校验，使用正则处理不合法的字符，应对 AI 智障
+//        // 保存图表数据
+//        Chart chart = new Chart();
+//        chart.setName(name);
+//        chart.setGoal(goal);
+//        chart.setChartData(csvData);
+//        chart.setChartType(chartType);
+//        chart.setGenChart(genChart);
+//        chart.setGenResult(genResult);
+//        chart.setUserId(loginUser.getId());
+//        boolean save = this.save(chart);
+//        ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+//
+//        BiResponse biResponse = new BiResponse();
+//        biResponse.setId(chart.getId());
+//        biResponse.setGenChart(genChart);
+//        biResponse.setGenResult(genResult);
 
-        BiResponse biResponse = new BiResponse();
-        biResponse.setId(chart.getId());
-        biResponse.setGenChart(genChart);
-        biResponse.setGenResult(genResult);
-
-        return biResponse;
+//        return biResponse;
     }
 
     /**

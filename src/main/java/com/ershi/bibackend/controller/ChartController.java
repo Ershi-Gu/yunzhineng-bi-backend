@@ -213,7 +213,7 @@ public class ChartController {
     }
 
     /**
-     * 编辑（用户）
+     * 编辑
      *
      * @param chartEditRequest
      * @param request
