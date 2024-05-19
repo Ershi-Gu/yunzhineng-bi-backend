@@ -155,7 +155,6 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
         final List<String> validFileSuffixList = Arrays.asList("xlsx");
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
 
-
         // 用户输入数据处理
         List<Map<Integer, String>> csvDataList = ExcelUtils.excelToCsv(multipartFile);
         String csvData = ExcelUtils.csvToString(csvDataList);

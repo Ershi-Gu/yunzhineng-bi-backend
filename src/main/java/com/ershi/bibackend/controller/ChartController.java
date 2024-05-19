@@ -9,6 +9,7 @@ import com.ershi.bibackend.common.ResultUtils;
 import com.ershi.bibackend.constant.UserConstant;
 import com.ershi.bibackend.exception.BusinessException;
 import com.ershi.bibackend.exception.ThrowUtils;
+import com.ershi.bibackend.manager.RedisLimiterManager;
 import com.ershi.bibackend.model.dto.chart.*;
 import com.ershi.bibackend.model.entity.Chart;
 import com.ershi.bibackend.model.entity.User;
@@ -40,6 +41,9 @@ public class ChartController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private RedisLimiterManager redisLimiterManager;
 
     // region 增删改查
 
@@ -249,7 +253,7 @@ public class ChartController {
 
     @PostMapping("/gen")
     public BaseResponse<BiResponse> genChartByAI(@RequestPart("file") MultipartFile multipartFile,
-                                             GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
+                                                 GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
         // 请求检验
         if (genChartByAIRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求数据不能为空");
@@ -257,6 +261,9 @@ public class ChartController {
 
         // 获取登录用户
         User loginUser = userService.getLoginUser(request);
+
+        // 限流判断
+        redisLimiterManager.doRateLimit("genChartByAI-" + loginUser.getId());
 
         // 调用服务
         BiResponse result = chartService.genChartByAI(multipartFile, genChartByAIRequest, loginUser);
