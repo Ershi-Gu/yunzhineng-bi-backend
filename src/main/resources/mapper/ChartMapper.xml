@@ -23,4 +23,24 @@
         chartType,genChart,genResult,userId,
         createTime,updateTime,isDelete
     </sql>
+
+    <insert id="createTable">
+        CREATE TABLE ${tableName} (
+        <foreach collection="columns" index="columnName" item="columnType" separator=",">
+            ${columnName} ${columnType}
+        </foreach>
+        );
+    </insert>
+
+    <insert id="insertData">
+        INSERT INTO ${tableName} VALUES
+        <foreach collection="data" item="row" separator=",">
+            <trim prefix="(" suffix=")" suffixOverrides=",">
+                <foreach collection="row.values()" item="value" separator=",">
+                    #{value}
+                </foreach>
+            </trim>
+        </foreach>
+    </insert>
+
 </mapper>

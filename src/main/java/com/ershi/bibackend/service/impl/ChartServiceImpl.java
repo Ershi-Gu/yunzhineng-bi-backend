@@ -1,7 +1,6 @@
 package com.ershi.bibackend.service.impl;
 
-import java.util.Arrays;
-import java.util.Date;
+import java.util.*;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.io.FileUtil;
@@ -38,7 +37,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
-import java.util.List;
 import java.util.stream.Collectors;
 
 /**
@@ -48,6 +46,9 @@ import java.util.stream.Collectors;
  */
 @Service
 public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements ChartService {
+
+    @Resource
+    private ChartMapper chartMapper;
 
     @Resource
     private AIManager aiManager;
@@ -115,9 +116,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
         if (chart == null) {
             return null;
         }
-        ChartVO ChartVO = new ChartVO();
-        BeanUtils.copyProperties(chart, ChartVO);
-        return ChartVO;
+        ChartVO chartVO = new ChartVO();
+        BeanUtils.copyProperties(chart, chartVO);
+        return chartVO;
     }
 
     @Override
@@ -155,8 +156,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
         ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
 
 
-        // 用户输入
-        String csvData = ExcelUtils.excelToCsv(multipartFile);
+        // 用户输入数据处理
+        List<Map<Integer, String>> csvDataList = ExcelUtils.excelToCsv(multipartFile);
+        String csvData = ExcelUtils.csvToString(csvDataList);
         StringBuilder userInput = new StringBuilder();
         userInput.append("分析需求:").append("\n");
         if (StringUtils.isNotBlank(chartType)) {
@@ -166,38 +168,41 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
         userInput.append("原始数据:").append("\n");
         userInput.append(csvData).append("\n");
 
+        // 调用 AI 服务生成图表和分析
+        String result = aiManager.doChat(userInput.toString());
+        String[] splits = result.split("【【【【【");
+        if (splits.length != 3) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 分析异常");
+        }
 
-        return null;
-//        // 调用 AI 服务生成图表和分析
-//        String result = aiManager.doChat(userInput.toString());
-//        String[] splits = result.split("【【【【【");
-//        if (splits.length != 3) {
-//            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 分析异常");
-//        }
-//        String genChart = splits[1];
-//        String genResult = splits[2];
-//        // 格式处理
-//        genChart = RemoveFirstNewline(genChart);
-//        genResult = RemoveFirstNewline(genResult);
-//        // todo 生成输入的校验，使用正则处理不合法的字符，应对 AI 智障
-//        // 保存图表数据
-//        Chart chart = new Chart();
-//        chart.setName(name);
-//        chart.setGoal(goal);
-//        chart.setChartData(csvData);
-//        chart.setChartType(chartType);
-//        chart.setGenChart(genChart);
-//        chart.setGenResult(genResult);
-//        chart.setUserId(loginUser.getId());
-//        boolean save = this.save(chart);
-//        ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "图表保存失败");
-//
-//        BiResponse biResponse = new BiResponse();
-//        biResponse.setId(chart.getId());
-//        biResponse.setGenChart(genChart);
-//        biResponse.setGenResult(genResult);
+        // 返回数据格式处理
+        String genChart = splits[1];
+        String genResult = splits[2];
+        genChart = RemoveFirstNewline(genChart);
+        genResult = RemoveFirstNewline(genResult);
+        // todo 生成输入的校验，使用正则处理不合法的字符，应对 AI 智障
 
-//        return biResponse;
+        // 保存图表数据
+        Chart chart = new Chart();
+        chart.setName(name);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setGenChart(genChart);
+        chart.setGenResult(genResult);
+        chart.setUserId(loginUser.getId());
+        boolean save = this.save(chart);
+        ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "图表保存失败");
+        String chartDataTableName = "chart_" + chart.getId();
+        // 分表保存图表原始数据
+        createChartDataTableAndInsertData(chartDataTableName, csvDataList);
+
+        BiResponse biResponse = new BiResponse();
+        biResponse.setId(chart.getId());
+        biResponse.setGenChart(genChart);
+        biResponse.setGenResult(genResult);
+
+        return biResponse;
     }
 
     /**
@@ -224,6 +229,32 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
         }
 
         return string;
+    }
+
+
+    /**
+     * 原始数据分表存储，该方法会创建一个 chart_图表id 的新表，并将原始数据按列与列对应插入
+     * @param tableName 分表名
+     * @param data 原始数据
+     */
+    public void createChartDataTableAndInsertData(String tableName, List<Map<Integer, String>> data) {
+        if (data == null || data.isEmpty()) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "分析数据为空");
+        }
+        // 根据第一行数据表头动态生成表结构
+        Map<String, String> columns = new HashMap<>();
+        Map<Integer, String> firstRow = data.get(0);
+        firstRow.forEach((key, value) -> {
+            String columnType = "VARCHAR(1024)";
+            // 对列名进行处理
+            value = "`" + StringUtils.deleteWhitespace(value) + "`";
+            columns.put(value, columnType);
+        });
+
+        chartMapper.createTable(tableName, columns);
+
+        data.remove(0);
+        chartMapper.insertData(tableName, data);
     }
 }
 

@@ -14,6 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +35,7 @@ public class ExcelUtils {
      * @param multipartFile
      * @return {@link String}
      */
-    public static String excelToCsv(MultipartFile multipartFile) {
+    public static List<Map<Integer, String>> excelToCsv(MultipartFile multipartFile) {
         // 读取数据
         List<Map<Integer, String>> list = null;
         try {
@@ -44,8 +45,19 @@ public class ExcelUtils {
                     .headRowNumber(0)
                     .doReadSync();
         } catch (Exception e) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "数据文件解析错误");
+            log.error("表格文件解析错误");
         }
+        return list;
+    }
+
+
+    /**
+     * 将 csvList 数据 转换为字符串输出
+     * @param list
+     * @return {@link String}
+     */
+    public static String csvToString(List<Map<Integer, String>> list){
+
         if (CollUtil.isEmpty(list)) {
             return "";
         }
@@ -62,6 +74,5 @@ public class ExcelUtils {
             stringBuilder.append(StringUtils.join(dataList, ",")).append("\n");
         }
         return stringBuilder.toString();
-
     }
 }
