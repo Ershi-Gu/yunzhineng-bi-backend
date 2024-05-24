@@ -77,7 +77,7 @@ public interface ChartService extends IService<Chart> {
 
 
     /**
-     * BI 智能数据分析
+     * BI 智能数据分析 （同步）
      *
      * @param multipartFile
      * @param genChartByAIRequest
@@ -86,5 +86,15 @@ public interface ChartService extends IService<Chart> {
      */
     BiResponse genChartByAI(@RequestPart("file") MultipartFile multipartFile,
                             GenChartByAIRequest genChartByAIRequest, User loginUser);
+
+
+    /**
+     * BI 智能数据分析 （异步）
+     * @param multipartFile
+     * @param genChartByAIRequest
+     * @param loginUser
+     * @return {@link BiResponse}
+     */
+    BiResponse genChartByAIAsync(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, User loginUser);
 
 }

@@ -1,5 +1,6 @@
 package com.ershi.bibackend.service.impl;
 
+import java.time.Duration;
 import java.util.*;
 
 import cn.hutool.core.collection.CollUtil;
@@ -8,7 +9,6 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.ershi.bibackend.common.ErrorCode;
-import com.ershi.bibackend.common.ResultUtils;
 import com.ershi.bibackend.constant.CommonConstant;
 import com.ershi.bibackend.exception.BusinessException;
 import com.ershi.bibackend.exception.ThrowUtils;
@@ -16,27 +16,26 @@ import com.ershi.bibackend.manager.AIManager;
 import com.ershi.bibackend.model.dto.chart.ChartQueryRequest;
 import com.ershi.bibackend.model.dto.chart.GenChartByAIRequest;
 import com.ershi.bibackend.model.entity.*;
+import com.ershi.bibackend.model.enums.ChartStatusEnum;
 import com.ershi.bibackend.model.enums.FileUploadBizEnum;
 import com.ershi.bibackend.model.vo.BiResponse;
 import com.ershi.bibackend.model.vo.ChartVO;
-import com.ershi.bibackend.model.vo.PostVO;
-import com.ershi.bibackend.model.vo.UserVO;
 import com.ershi.bibackend.service.ChartService;
 import com.ershi.bibackend.mapper.ChartMapper;
 import com.ershi.bibackend.utils.ExcelUtils;
 import com.ershi.bibackend.utils.SqlUtils;
-import com.yupi.yucongming.dev.common.BaseResponse;
-import com.yupi.yucongming.dev.model.DevChatResponse;
-import jdk.nashorn.internal.ir.annotations.Reference;
-import netscape.security.PrivilegeManager;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.ObjectUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.poi.ss.formula.functions.T;
 import org.springframework.beans.BeanUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.util.concurrent.*;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -45,6 +44,7 @@ import java.util.stream.Collectors;
  * @createDate 2024-05-15 01:37:04
  */
 @Service
+@Slf4j
 public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements ChartService {
 
     @Resource
@@ -52,6 +52,15 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
 
     @Resource
     private AIManager aiManager;
+
+    @Resource
+    private ThreadPoolExecutor myThreadPoolExecutor;
+
+    @Resource
+    private ScheduledThreadPoolExecutor scheduledThreadPoolExecutor;
+
+    // 用于保存执行任务的线程
+    private static final ConcurrentHashMap<String, Thread> threadMap = new ConcurrentHashMap<>();
 
     @Override
     public void validChart(Chart chart, boolean add) {
@@ -138,12 +147,12 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
     @Override
     public BiResponse genChartByAI(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, User loginUser) {
 
-        String name = genChartByAIRequest.getName();
+        String chartName = genChartByAIRequest.getName();
         String goal = genChartByAIRequest.getGoal();
         String chartType = genChartByAIRequest.getChartType();
 
         // 参数检验
-        ThrowUtils.throwIf(StringUtils.isNotBlank(name) && name.length() > 100, ErrorCode.PARAMS_ERROR, "图表名称过长");
+        ThrowUtils.throwIf(StringUtils.isNotBlank(chartName) && chartName.length() > 100, ErrorCode.PARAMS_ERROR, "图表名称过长");
         ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标为空");
 
         // 文件校验
@@ -183,7 +192,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
 
         // 保存图表数据
         Chart chart = new Chart();
-        chart.setName(name);
+        chart.setName(chartName);
         chart.setGoal(goal);
         chart.setChartData(csvData);
         chart.setChartType(chartType);
@@ -192,9 +201,10 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
         chart.setUserId(loginUser.getId());
         boolean save = this.save(chart);
         ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "图表保存失败");
-        String chartDataTableName = "chart_" + chart.getId();
+
         // 分表保存图表原始数据
-        createChartDataTableAndInsertData(chartDataTableName, csvDataList);
+//        String chartDataTableName = "chart_" + chart.getId();
+//        createChartDataTableAndInsertData(chartDataTableName, csvDataList);
 
         BiResponse biResponse = new BiResponse();
         biResponse.setId(chart.getId());
@@ -202,6 +212,118 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
         biResponse.setGenResult(genResult);
 
         return biResponse;
+    }
+
+
+    @Override
+    public BiResponse genChartByAIAsync(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, User loginUser) {
+
+        String chartName = genChartByAIRequest.getName();
+        String goal = genChartByAIRequest.getGoal();
+        String chartType = genChartByAIRequest.getChartType();
+
+        // 参数检验
+        ThrowUtils.throwIf(StringUtils.isNotBlank(chartName) && chartName.length() > 100, ErrorCode.PARAMS_ERROR, "图表名称过长");
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标为空");
+
+        // 文件校验
+        long size = multipartFile.getSize();
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件超过 1M");
+        String originalFilename = multipartFile.getOriginalFilename();
+        String suffix = FileUtil.getSuffix(originalFilename);
+        final List<String> validFileSuffixList = Arrays.asList("xlsx");
+        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
+
+        // 用户输入数据处理
+        List<Map<Integer, String>> csvDataList = ExcelUtils.excelToCsv(multipartFile);
+        String csvData = ExcelUtils.csvToString(csvDataList);
+        StringBuilder userInput = new StringBuilder();
+        userInput.append("分析需求:").append("\n");
+        if (StringUtils.isNotBlank(chartType)) {
+            goal = goal + "，请使用" + chartType;
+        }
+        userInput.append(goal).append("\n");
+        userInput.append("原始数据:").append("\n");
+        userInput.append(csvData).append("\n");
+
+        // 保存任务记录到数据库
+        Chart chart = new Chart();
+        chart.setName(chartName);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setStatus(ChartStatusEnum.WAIT.getValue());
+        chart.setUserId(loginUser.getId());
+        boolean save = this.save(chart);
+        ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "生成图表任务记录保存失败");
+
+
+        // 异步调用 AI 服务生成图表和分析
+        CompletableFuture.runAsync(() -> {
+
+            // 修改任务状态
+            Chart updateChart = new Chart();
+            updateChart.setId(chart.getId());
+            updateChart.setStatus(ChartStatusEnum.RUNNING.getValue());
+            updateChart.setExecuteMessage(ChartStatusEnum.RUNNING.getText());
+            boolean updateResult = this.updateById(updateChart);
+            if (!updateResult) {
+                handlerChartUpdateError(updateChart.getId(), "更新 Chart 任务状态为进行中失败");
+                return;
+            }
+
+            // AI 服务
+            String result = aiManager.doChat(userInput.toString());
+            String[] splits = result.split("【【【【【");
+            if (splits.length != 3) {
+                throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 分析异常");
+            }
+
+            // 返回数据格式处理
+            String genChart = splits[1];
+            String genResult = splits[2];
+            genChart = RemoveFirstNewline(genChart);
+            genResult = RemoveFirstNewline(genResult);
+            // todo 生成输入的校验，使用正则处理不合法的字符，应对 AI 智障
+
+
+            // 保存结果到数据库，并修改任务状态
+            updateChart.setGenChart(genChart);
+            updateChart.setGenResult(genResult);
+            updateChart.setStatus(ChartStatusEnum.SUCCEED.getValue());
+            updateChart.setExecuteMessage(ChartStatusEnum.SUCCEED.getText());
+            boolean overBiUpdateResult = this.updateById(updateChart);
+            if (!overBiUpdateResult) {
+                handlerChartUpdateError(updateChart.getId(), "保存 Chart 生成任务执行结果数据库失败");
+                return;
+            }
+
+        }, myThreadPoolExecutor);
+
+        // 返回用户结果 => 异步处理（这里不直接返回生成结果），用户直接去图标管理界面查询处理进度
+        BiResponse biResponse = new BiResponse();
+        biResponse.setId(chart.getId());
+
+        return biResponse;
+    }
+
+
+    /**
+     * 更新 Chart 记录表错误处理工具
+     *
+     * @param updateChartId
+     */
+    public void handlerChartUpdateError(Long updateChartId, String executeMessage) {
+        Chart updateChart = new Chart();
+        updateChart.setId(updateChartId);
+        updateChart.setStatus(ChartStatusEnum.FAILED.getValue());
+        updateChart.setExecuteMessage(executeMessage);
+        boolean updateResult = this.updateById(updateChart);
+        if (!updateResult) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新任务记录数据库失败-"
+                    + updateChart.getId() + "-" + executeMessage);
+        }
     }
 
     /**
@@ -233,8 +355,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
 
     /**
      * 原始数据分表存储，该方法会创建一个 chart_图表id 的新表，并将原始数据按列与列对应插入
+     *
      * @param tableName 分表名
-     * @param data 原始数据
+     * @param data      原始数据
      */
     public void createChartDataTableAndInsertData(String tableName, List<Map<Integer, String>> data) {
         if (data == null || data.isEmpty()) {

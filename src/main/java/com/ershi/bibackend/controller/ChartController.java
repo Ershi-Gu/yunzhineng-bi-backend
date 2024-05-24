@@ -18,7 +18,6 @@ import com.ershi.bibackend.model.vo.ChartVO;
 import com.ershi.bibackend.service.ChartService;
 import com.ershi.bibackend.service.UserService;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -251,6 +250,13 @@ public class ChartController {
 
     // region AI 接口
 
+    /**
+     * 智能 BI （同步）
+     * @param multipartFile
+     * @param genChartByAIRequest
+     * @param request
+     * @return {@link BaseResponse}<{@link BiResponse}>
+     */
     @PostMapping("/gen")
     public BaseResponse<BiResponse> genChartByAI(@RequestPart("file") MultipartFile multipartFile,
                                                  GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
@@ -267,6 +273,32 @@ public class ChartController {
 
         // 调用服务
         BiResponse result = chartService.genChartByAI(multipartFile, genChartByAIRequest, loginUser);
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 智能 BI （异步）
+     * @param multipartFile
+     * @param genChartByAIRequest
+     * @param request
+     * @return {@link BaseResponse}<{@link BiResponse}>
+     */
+    @PostMapping("/gen/async")
+    public BaseResponse<BiResponse> genChartByAIAsync(@RequestPart("file") MultipartFile multipartFile,
+                                                 GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
+        // 请求检验
+        if (genChartByAIRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求数据不能为空");
+        }
+
+        // 获取登录用户
+        User loginUser = userService.getLoginUser(request);
+
+        // 限流判断
+        redisLimiterManager.doRateLimit("genChartByAI-" + loginUser.getId());
+
+        // 调用服务
+        BiResponse result = chartService.genChartByAIAsync(multipartFile, genChartByAIRequest, loginUser);
         return ResultUtils.success(result);
     }
 
