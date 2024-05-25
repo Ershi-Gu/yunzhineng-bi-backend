@@ -2,7 +2,6 @@ package com.ershi.bibackend.manager;
 
 import com.ershi.bibackend.common.ErrorCode;
 import com.ershi.bibackend.exception.BusinessException;
-import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RRateLimiter;
 import org.redisson.api.RateIntervalUnit;
 import org.redisson.api.RateType;
@@ -18,7 +17,6 @@ import javax.annotation.Resource;
  * @date 2024/05/19
  */
 @Service
-@Slf4j
 public class RedisLimiterManager {
 
     @Resource
@@ -36,7 +34,7 @@ public class RedisLimiterManager {
         // 每个用户每分钟发放5个令牌 => 每分钟可执行5次操作
         // 如果限流器还未配置速率，则进行配置
         if (!rateLimiter.isExists()) {
-            rateLimiter.trySetRate(RateType.OVERALL, 5, 60, RateIntervalUnit.SECONDS);
+            rateLimiter.trySetRate(RateType.OVERALL, 2, 60, RateIntervalUnit.SECONDS);
         }
         // 每次操作来了后，请求一个令牌
         boolean canProceed = rateLimiter.tryAcquire(1);

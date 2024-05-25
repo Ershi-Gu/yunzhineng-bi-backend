@@ -8,6 +8,8 @@ import cn.hutool.core.io.FileUtil;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.ershi.bibackend.businessmq.BiMessageProducer;
+import com.ershi.bibackend.common.BiModelConstant;
 import com.ershi.bibackend.common.ErrorCode;
 import com.ershi.bibackend.constant.CommonConstant;
 import com.ershi.bibackend.exception.BusinessException;
@@ -58,6 +60,9 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
 
     @Resource
     private ScheduledThreadPoolExecutor scheduledThreadPoolExecutor;
+
+    @Resource
+    private BiMessageProducer biMessageProducer;
 
     // 用于保存执行任务的线程
     private static final ConcurrentHashMap<String, Thread> threadMap = new ConcurrentHashMap<>();
@@ -133,8 +138,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
     @Override
     public Page<ChartVO> getChartVOPage(Page<Chart> chartPage, HttpServletRequest request) {
         List<Chart> ChartList = chartPage.getRecords();
-        Page<ChartVO> ChartrVOPage = new Page<>(chartPage.getCurrent(),
-                chartPage.getSize(), chartPage.getTotal());
+        Page<ChartVO> ChartrVOPage = new Page<>(chartPage.getCurrent(), chartPage.getSize(), chartPage.getTotal());
         if (CollUtil.isEmpty(ChartList)) {
             return ChartrVOPage;
         }
@@ -177,10 +181,10 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
         userInput.append(csvData).append("\n");
 
         // 调用 AI 服务生成图表和分析
-        String result = aiManager.doChat(userInput.toString());
+        String result = aiManager.doChat(BiModelConstant.BI_MODEL_ID, userInput.toString());
         String[] splits = result.split("【【【【【");
         if (splits.length != 3) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 分析异常");
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 分析异常, 请重试");
         }
 
         // 返回数据格式处理
@@ -198,6 +202,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
         chart.setChartType(chartType);
         chart.setGenChart(genChart);
         chart.setGenResult(genResult);
+        chart.setStatus(ChartStatusEnum.SUCCEED.getValue());
         chart.setUserId(loginUser.getId());
         boolean save = this.save(chart);
         ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "图表保存失败");
@@ -274,7 +279,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
             }
 
             // AI 服务
-            String result = aiManager.doChat(userInput.toString());
+            String result = aiManager.doChat(BiModelConstant.BI_MODEL_ID, userInput.toString());
             String[] splits = result.split("【【【【【");
             if (splits.length != 3) {
                 throw new BusinessException(ErrorCode.SYSTEM_ERROR, "AI 分析异常");
@@ -309,10 +314,57 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
     }
 
 
+    public BiResponse genChartByAIAsyncMq(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, User loginUser) {
+
+        String chartName = genChartByAIRequest.getName();
+        String goal = genChartByAIRequest.getGoal();
+        String chartType = genChartByAIRequest.getChartType();
+
+        // 参数检验
+        ThrowUtils.throwIf(StringUtils.isNotBlank(chartName) && chartName.length() > 100, ErrorCode.PARAMS_ERROR, "图表名称过长");
+        ThrowUtils.throwIf(StringUtils.isBlank(goal), ErrorCode.PARAMS_ERROR, "分析目标为空");
+
+        // 文件校验
+        long size = multipartFile.getSize();
+        final long ONE_MB = 1024 * 1024L;
+        ThrowUtils.throwIf(size > ONE_MB, ErrorCode.PARAMS_ERROR, "文件超过 1M");
+        String originalFilename = multipartFile.getOriginalFilename();
+        String suffix = FileUtil.getSuffix(originalFilename);
+        final List<String> validFileSuffixList = Arrays.asList("xlsx");
+        ThrowUtils.throwIf(!validFileSuffixList.contains(suffix), ErrorCode.PARAMS_ERROR, "文件后缀非法");
+
+        // 原始数据处理
+        List<Map<Integer, String>> csvDataList = ExcelUtils.excelToCsv(multipartFile);
+        String csvData = ExcelUtils.csvToString(csvDataList);
+
+        // 保存任务记录到数据库
+        Chart chart = new Chart();
+        chart.setName(chartName);
+        chart.setGoal(goal);
+        chart.setChartData(csvData);
+        chart.setChartType(chartType);
+        chart.setStatus(ChartStatusEnum.WAIT.getValue());
+        chart.setUserId(loginUser.getId());
+        boolean save = this.save(chart);
+        ThrowUtils.throwIf(!save, ErrorCode.SYSTEM_ERROR, "生成图表任务记录保存失败");
+        long newChartId = chart.getId();
+
+        // 往消息队列发消息 => 通知执行任务
+        biMessageProducer.sendMessage(String.valueOf(newChartId));
+
+        // 返回用户结果 => 异步处理（这里不直接返回生成结果），用户直接去图标管理界面查询处理进度
+        BiResponse biResponse = new BiResponse();
+        biResponse.setId(chart.getId());
+
+        return biResponse;
+    }
+
+
     /**
      * 更新 Chart 记录表错误处理工具
      *
      * @param updateChartId
+     * @param executeMessage
      */
     public void handlerChartUpdateError(Long updateChartId, String executeMessage) {
         Chart updateChart = new Chart();
@@ -321,8 +373,7 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
         updateChart.setExecuteMessage(executeMessage);
         boolean updateResult = this.updateById(updateChart);
         if (!updateResult) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新任务记录数据库失败-"
-                    + updateChart.getId() + "-" + executeMessage);
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "更新任务记录数据库失败-" + updateChart.getId() + "-" + executeMessage);
         }
     }
 
@@ -337,16 +388,14 @@ public class ChartServiceImpl extends ServiceImpl<ChartMapper, Chart> implements
         int firstNewlineIndex = string.indexOf('\n');
         if (firstNewlineIndex != -1) {
             // 移除第一个换行符
-            string = string.substring(0, firstNewlineIndex) +
-                    string.substring(firstNewlineIndex + 1);
+            string = string.substring(0, firstNewlineIndex) + string.substring(firstNewlineIndex + 1);
         }
 
         // 找到最后一个换行符的位置
         int lastNewlineIndex = string.lastIndexOf('\n');
         if (lastNewlineIndex != -1) {
             // 移除最后一个换行符
-            string = string.substring(0, lastNewlineIndex) +
-                    string.substring(lastNewlineIndex + 1);
+            string = string.substring(0, lastNewlineIndex) + string.substring(lastNewlineIndex + 1);
         }
 
         return string;

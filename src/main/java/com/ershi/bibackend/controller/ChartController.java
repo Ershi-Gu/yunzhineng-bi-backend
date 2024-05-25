@@ -294,11 +294,37 @@ public class ChartController {
         // 获取登录用户
         User loginUser = userService.getLoginUser(request);
 
-        // 限流判断
+        // 限流判断 => 针对单个用户
         redisLimiterManager.doRateLimit("genChartByAI-" + loginUser.getId());
 
         // 调用服务
         BiResponse result = chartService.genChartByAIAsync(multipartFile, genChartByAIRequest, loginUser);
+        return ResultUtils.success(result);
+    }
+
+    /**
+     * 智能 BI （异步-消息队列实现）
+     * @param multipartFile
+     * @param genChartByAIRequest
+     * @param request
+     * @return {@link BaseResponse}<{@link BiResponse}>
+     */
+    @PostMapping("/gen/async/mq")
+    public BaseResponse<BiResponse> genChartByAIAsyncMq(@RequestPart("file") MultipartFile multipartFile,
+                                                      GenChartByAIRequest genChartByAIRequest, HttpServletRequest request) {
+        // 请求检验
+        if (genChartByAIRequest == null) {
+            throw new BusinessException(ErrorCode.PARAMS_ERROR, "请求数据不能为空");
+        }
+
+        // 获取登录用户
+        User loginUser = userService.getLoginUser(request);
+
+        // 限流判断 => 针对单个用户
+        redisLimiterManager.doRateLimit("genChartByAI-" + loginUser.getId());
+
+        // 调用服务
+        BiResponse result = chartService.genChartByAIAsyncMq(multipartFile, genChartByAIRequest, loginUser);
         return ResultUtils.success(result);
     }
 

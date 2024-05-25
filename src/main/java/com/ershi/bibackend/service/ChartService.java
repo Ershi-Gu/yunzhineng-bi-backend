@@ -97,4 +97,32 @@ public interface ChartService extends IService<Chart> {
      */
     BiResponse genChartByAIAsync(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, User loginUser);
 
+
+    /**
+     * BI 智能数据分析 （异步-消息队列实现）
+     * @param multipartFile
+     * @param genChartByAIRequest
+     * @param loginUser
+     * @return {@link BiResponse}
+     */
+    BiResponse genChartByAIAsyncMq(MultipartFile multipartFile, GenChartByAIRequest genChartByAIRequest, User loginUser);
+
+
+    /**
+     * 更新 Chart 记录表错误处理工具
+     *
+     * @param updateChartId
+     * @param executeMessage
+     */
+    public void handlerChartUpdateError(Long updateChartId, String executeMessage);
+
+
+    /**
+     * 移除首行换行符
+     *
+     * @param string
+     * @return {@link String}
+     */
+    public String RemoveFirstNewline(String string);
+
 }

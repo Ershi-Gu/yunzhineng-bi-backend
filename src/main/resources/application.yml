@@ -18,31 +18,30 @@ spring:
     # 30 天过期
     timeout: 2592000
   # 数据库配置
-  # todo 需替换配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/ershi_bi
     username: root
     password: 200303078
   # Redis 配置
-  # todo 需替换配置，然后取消注释
   redis:
     database: 1
     host: localhost
     port: 6379
     timeout: 5000
-#    password:
-  # Elasticsearch 配置
-  # todo 需替换配置，然后取消注释
-#  elasticsearch:
-#    uris: http://localhost:9200
-#    username: root
-#    password: 123456
   # 文件上传
   servlet:
     multipart:
       # 大小限制
       max-file-size: 10MB
+  # spring-rabbitMQ
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guershi
+    password: guershi
+    virtual-host: ershi-bi
+# 服务器配置
 server:
   address: 0.0.0.0
   port: 8081
@@ -52,6 +51,7 @@ server:
     session:
       cookie:
         max-age: 2592000
+# Mybatis 相关配置
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: false
@@ -101,7 +101,7 @@ knife4j:
         api-rule: package
         api-rule-resources:
           - com.ershi.bibackend.controller
-
+# 鱼聪明 client
 yuapi:
   client:
     access-key: kaqmhtd8uj4xfwp5pl7gkvwhckp8dsq6

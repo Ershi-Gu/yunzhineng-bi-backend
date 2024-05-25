@@ -21,9 +21,9 @@ public class AIManager {
      * @param message 请求的内容
      * @return {@link BaseResponse}<{@link DevChatResponse}>
      */
-    public String doChat(String message){
+    public String doChat(long modelId, String message){
         DevChatRequest devChatRequest = new DevChatRequest();
-        devChatRequest.setModelId(1791045332363845633L);
+        devChatRequest.setModelId(modelId);
         devChatRequest.setMessage(message);
 
         BaseResponse<DevChatResponse> response = yuCongMingClient.doChat(devChatRequest);
