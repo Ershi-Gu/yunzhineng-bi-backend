@@ -34,7 +34,7 @@ public class RedisLimiterManager {
         // 每个用户每分钟发放5个令牌 => 每分钟可执行5次操作
         // 如果限流器还未配置速率，则进行配置
         if (!rateLimiter.isExists()) {
-            rateLimiter.trySetRate(RateType.OVERALL, 2, 60, RateIntervalUnit.SECONDS);
+            rateLimiter.trySetRate(RateType.OVERALL, 2, 1, RateIntervalUnit.DAYS);
         }
         // 每次操作来了后，请求一个令牌
         boolean canProceed = rateLimiter.tryAcquire(1);

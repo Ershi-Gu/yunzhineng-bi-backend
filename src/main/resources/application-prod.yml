@@ -2,36 +2,47 @@
 # @author <a href="https://github.com/guershi">贰拾</a>
 # 
 server:
-  port: 8101
+  port: 9091
+  servlet:
+    context-path: /api
+    # cookie 30 天过期
+    session:
+      cookie:
+        max-age: 2592000
 spring:
+  application:
+    name: ershi-bi-backend
   # 数据库配置
-  # todo 需替换配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/my_db
+    url: jdbc:mysql://mysql:3306/ershi_bi?useUnicode=true&characterEncoding=UTF-8
     username: root
-    password: 123456
+    password: 200303078
   # Redis 配置
-  # todo 需替换配置
   redis:
     database: 1
-    host: localhost
+    host: redis
     port: 6379
     timeout: 5000
-    password: 123456
-  # Elasticsearch 配置
-  # todo 需替换配置
-  elasticsearch:
-    uris: http://localhost:9200
-    username: root
-    password: 123456
+    password: 200303078
+  # spring-rabbitMQ
+  rabbitmq:
+    host: mq
+    port: 5672
+    username: guershi
+    password: 200303078
+    virtual-host: ershi-bi
 mybatis-plus:
   configuration:
     # 生产环境关闭日志
     log-impl: ''
-# 接口文档配置
-knife4j:
-  basic:
-    enable: true
-    username: root
-    password: 123456
+  global-config:
+    db-config:
+      logic-delete-field: isDelete # 全局逻辑删除的实体字段名
+      logic-delete-value: 1 # 逻辑已删除值（默认为 1）
+      logic-not-delete-value: 0 # 逻辑未删除值（默认为 0）
+# 鱼聪明 client
+yuapi:
+  client:
+    access-key: kaqmhtd8uj4xfwp5pl7gkvwhckp8dsq6
+    secret-key: lmj7d4jz7fzu94cv03gekae2dysfim94

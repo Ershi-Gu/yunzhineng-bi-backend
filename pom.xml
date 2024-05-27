@@ -13,7 +13,7 @@
     </parent>
     <groupId>com.ershi</groupId>
     <artifactId>bibackend</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.0.1</version>
     <name>bibackend</name>
     <properties>
         <java.version>1.8</java.version>
