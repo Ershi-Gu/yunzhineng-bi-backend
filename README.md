@@ -1,7 +1,7 @@
 # 云智能 BI 数据分析平台
 一款集成 AI 的智能数据分析平台，皆在帮助更多的人获得数据分析的能力。
 
-![image](https://github.com/Ershi-Gu/yunzhineng-bi-backend/assets/102850729/7b101e49-c7a3-41d6-b00e-92e11c831011)
+<img src="https://github.com/Ershi-Gu/yunzhineng-bi-backend/assets/102850729/7b101e49-c7a3-41d6-b00e-92e11c831011" alt="image" width="500" height="300">
 
 
 ## 项目导航
@@ -17,7 +17,7 @@
 ## 系统架构
 项目使用消息队列完成任务处理，异步的操作使得用户体验感大大增强. </br>
 
-![image](https://github.com/Ershi-Gu/yunzhineng-bi-backend/assets/102850729/be476911-1125-427e-9425-23934e824d2c)
+<img src="https://github.com/Ershi-Gu/yunzhineng-bi-backend/assets/102850729/be476911-1125-427e-9425-23934e824d2c" alt="image" width="500" height="300">
 
 ## 后端技术选型
 1. Spring Boot（万用 Java 后端项目模板，快速搭建基础框架）
