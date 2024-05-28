@@ -20,9 +20,9 @@ spring:
   # 数据库配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://localhost:3306/ershi_bi
+    url: jdbc:mysql://localhost:3306/
     username: root
-    password: 200303078
+    password:
   # Redis 配置
   redis:
     database: 1
@@ -38,9 +38,9 @@ spring:
   rabbitmq:
     host: localhost
     port: 5672
-    username: guershi
-    password: guershi
-    virtual-host: ershi-bi
+    username:
+    password:
+    virtual-host:
 # 服务器配置
 server:
   address: 0.0.0.0
@@ -104,5 +104,5 @@ knife4j:
 # 鱼聪明 client
 yuapi:
   client:
-    access-key: kaqmhtd8uj4xfwp5pl7gkvwhckp8dsq6
-    secret-key: lmj7d4jz7fzu94cv03gekae2dysfim94
+    access-key:
+    secret-key:
