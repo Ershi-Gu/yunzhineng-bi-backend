@@ -6,7 +6,7 @@
 您可以通过以下链接立即体验云智能 BI 数据分析平台的强大功能：
 [快速体验地址](http://bi.guershi.cn)
 
-##开发文档
+## 开发文档
 详细的开发文档请参阅：
 [开发文档](https://www.yuque.com/yuqueyonghu8cmbhk/ub4dfv/kcg42e4tr20brf2x?singleDoc#)
 
