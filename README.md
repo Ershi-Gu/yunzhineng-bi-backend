@@ -1,30 +1,36 @@
-# 云智能 BI 数据分析平台
-一款集成 AI 的智能数据分析平台，皆在帮助更多的人获得数据分析的能力。
+# 云智能 BI 数据分析平台简介
 
-<img src="https://github.com/Ershi-Gu/yunzhineng-bi-backend/assets/102850729/7b101e49-c7a3-41d6-b00e-92e11c831011" alt="image" width="500" height="300">
+云智能 BI 数据分析平台是一款集成 AI 技术的智能数据分析工具，旨在帮助用户快速、高效地获取数据分析能力。该平台的设计目标是简化数据分析过程，让用户无需具备深厚的数据科学背景即可完成复杂的数据分析任务。
 
+## 快速体验
+您可以通过以下链接立即体验云智能 BI 数据分析平台的强大功能：
+[快速体验地址](http://bi.guershi.cn)
 
-## 项目导航
-快速体验地址：http://bi.guershi.cn </br>
+##开发文档
+详细的开发文档请参阅：
+[开发文档](https://www.yuque.com/yuqueyonghu8cmbhk/ub4dfv/kcg42e4tr20brf2x?singleDoc#)
 
-开发文档：https://www.yuque.com/yuqueyonghu8cmbhk/ub4dfv/kcg42e4tr20brf2x?singleDoc#
-
-## 项目介绍
-相较于传统的数据分析平台，云智能 BI 可以为你提供快速便捷的数据分析。 </br>
-
-您只需要输入分析目标 => 选择图表类型 => 上传原始数据，最后等待即可获得分析结果与相应图表
+## 核心功能
+云智能 BI 平台相较于传统的数据分析工具，提供了更加便捷和智能的解决方案。用户只需按照以下简单的步骤，即可获得分析结果和相应的图表：
+1. 输入分析目标
+2. 选择图表类型
+3. 上传原始数据
+4. 等待系统自动生成分析结果和图表
 
 ## 系统架构
-项目使用消息队列完成任务处理，异步的操作使得用户体验感大大增强. </br>
+平台使用消息队列（RabbitMQ）完成任务处理，实现异步操作，显著提升了用户体验。以下是系统架构图：
 
-<img src="https://github.com/Ershi-Gu/yunzhineng-bi-backend/assets/102850729/be476911-1125-427e-9425-23934e824d2c" alt="image" width="500" height="300">
+<img src="https://github.com/Ershi-Gu/yunzhineng-bi-backend/assets/102850729/be476911-1125-427e-9425-23934e824d2c" alt="系统架构" width="600">
 
 ## 后端技术选型
-1. Spring Boot（万用 Java 后端项目模板，快速搭建基础框架）
-2. Mysql 数据库
-3. MyBatis Plus
-4. 消息队列（RabbitMQ）
-5. AI 能力（Open AI 接口开发 / 星球提供现成的 AI 接口）
-6. Excel 的上传和数据分析（Easy Excel）
-7. Swagger + Knife4j 项目接口文档
-8. Hutool 工具库
+为了确保平台的高性能和可扩展性，云智能 BI 采用了以下技术栈：
+1. **Spring Boot** - 作为基础框架，快速搭建后端项目。
+2. **MySQL** - 关系型数据库，用于存储和管理数据。
+3. **MyBatis Plus** - 数据持久层框架，简化数据库操作。
+4. **RabbitMQ** - 消息队列系统，实现任务的异步处理。
+5. **AI 能力** - 集成 OpenAI 接口或使用现成的 AI 接口提供智能分析功能。
+6. **Easy Excel** - 处理 Excel 文件的上传和数据分析。
+7. **Swagger + Knife4j** - 提供项目接口文档，方便开发和调试。
+8. **Hutool 工具库** - 提供丰富的 Java 工具类，简化开发工作。
+
+云智能 BI 数据分析平台通过上述先进技术的整合，提供了一种高效、智能的数据分析方式，帮助用户快速获取数据洞察，提升决策效率。无论是企业用户还是个人用户，都可以轻松上手并从中受益。
